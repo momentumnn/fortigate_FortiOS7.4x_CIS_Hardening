@@ -1,7 +1,7 @@
 ---
 - name: Backup FortiGate Firewalls
   hosts: fortigates
-  gather_facts: no
+  gather_facts: false
   connection: httpapi
 
   tasks:
@@ -19,7 +19,7 @@
         params:
           scope: "{{ fortigate_backup_scope }}"
       register: backup_result
-      ignore_errors: yes
+      ignore_errors: true
 
     - name: Save configuration to file
       ansible.builtin.copy:
@@ -36,8 +36,12 @@
       fortinet.fortios.fortios_monitor_fact:
         selector: 'system_status'
       register: system_status
-      ignore_errors: yes
+      ignore_errors: true
       when: backup_result is succeeded
+
+    - name: Show full system_status output
+      ansible.builtin.debug:
+        var: system_status
 
     - name: Save system information
       ansible.builtin.copy:

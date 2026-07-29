@@ -3,7 +3,7 @@
 ansible.log
 
 # Backups directory
-backups/
+playbooks/backups/
 
 # Vault password files
 .vault_pass

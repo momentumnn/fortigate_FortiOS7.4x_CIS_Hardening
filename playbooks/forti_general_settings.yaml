@@ -1,0 +1,152 @@
+---
+- name: Apply general settings based on CIS Hardening
+  hosts: fortigates
+  gather_facts: false
+  connection: httpapi
+
+  tasks:
+    - name: 1.1 Ensure DNS server is configured
+      fortinet.fortios.fortios_system_dns:
+        system_dns:
+          primary: "8.8.8.8"
+          secondary: "8.8.4.4"
+
+    - name: 1.1 Ensure pre-login banner is set
+      fortinet.fortios.fortios_system_global:
+        system_global:
+          pre_login_banner: "enable"
+
+    - name: 1.2 Ensure post-login banner is set
+      fortinet.fortios.fortios_system_global:
+        system_global:
+          post_login_banner: "enable"
+
+    - name: Ensure TimeZone is set
+      fortinet.fortios.fortios_system_global:
+        system_global:
+          timezone: "57"
+
+    - name: 1.1Ensure NTP set correct
+      fortinet.fortios.fortios_system_ntp:
+        system_ntp:
+          ntpserver:
+            - id: "1"
+              server: "pool.ntp.org"
+            - id: "2"
+              server: "1.1.1.1"
+          type: "custom"
+
+    - name: Disable USB Firmware and configuration installation
+      fortinet.fortios.fortios_system_auto_install:
+        system_auto_install:
+          auto_install_config: "disable"
+          auto_install_image: "disable"
+
+    - name: Disable USB Firmware and configuration installation
+      fortinet.fortios.fortios_system_global:
+        system_global:
+          ssl_static_key_ciphers: "disable"
+          strong_crypto: "enable"
+          admin_https_ssl_versions: "tlsv1-3"
+          gui_cdn_usage: "enable"
+          log_single_cpu_high: "enable"
+          gui_display_hostname: "disable"
+
+    - name: Ensure 'Password Policy' is enabled
+      fortinet.fortios.fortios_system_password_policy:
+        system_password_policy:
+          status: "enable"
+          apply_to:
+            - "admin-password"
+            - "ipsec-preshared-key"
+          minimum_length: "8"
+
+    - name: Ensure admin idle timeout time is configured
+      fortinet.fortios.fortios_system_global:
+        system_global:
+          admintimeout: 5
+
+    - name: Change default admin ports
+      fortinet.fortios.fortios_system_global:
+        system_global:
+          admin_https_redirect: "disable"
+          admin_port: "8082"
+          admin_server_cert: "self-sign"
+          admin_sport: "4343"
+
+    - name: Ensure firewall policy denying all traffic to/from Tor, malicious server, or scanner IP addresses using ISDB
+      fortinet.fortios.fortios_firewall_policy:
+        state: "present"
+        firewall_policy:
+          name: "INBOUND_TOR_MAL_SCANNER"
+          policyid: "0"
+          srcintf:
+            - name: "wan"
+          dstintf:
+            - name: "lan"
+          dstaddr:
+            - name: "all"
+          internet_service_src: "enable"
+          internet_service_src_name:
+            - name: "Botnet-C&C.Server"
+            - name: "Censys-Scanner"
+            - name: "Malicious-Malicious.Server"
+            - name: "Phishing-Phishing.Server"
+            - name: "Proxy-Proxy.Server"
+            - name: "Shodan-Scanner"
+            - name: "Spam-Spamming.Server"
+            - name: "Tor-Exit.Node"
+            - name: "Tor-Relay.Node"
+            - name: "VPN-Anonymizing.VPN.Server"
+          schedule: "always"
+          service:
+            - name: "ALL"
+          logtraffic: "disable"
+      register: policy_result
+      failed_when:
+        - policy_result is failed
+        - "'already used by firewall.policy' not in (policy_result.meta.cli_error | default(''))"
+
+    - name: Ensure firewall policy denying all traffic to/from Tor, malicious server, or scanner IP addresses using ISDB 2
+      fortinet.fortios.fortios_firewall_policy:
+        state: "present"
+        firewall_policy:
+          name: "OUTBOUND_TOR_MAL_SCANNER"
+          policyid: "0"
+          srcintf:
+            - name: "lan"
+          srcaddr:
+            - name: "all"
+          dstintf:
+            - name: "wan"
+          internet_service: "enable"
+          internet_service_name:
+            - name: "Botnet-C&C.Server"
+            - name: "Malicious-Malicious.Server"
+            - name: "Phishing-Phishing.Server"
+            - name: "Proxy-Proxy.Server"
+            - name: "Spam-Spamming.Server"
+            - name: "Tor-Relay.Node"
+            - name: "VPN-Anonymizing.VPN.Server"
+          schedule: "always"
+          service:
+            - name: "ALL"
+          logtraffic: "all"
+      register: policy_result
+      failed_when:
+        - policy_result is failed
+        - "'already used by firewall.policy' not in (policy_result.meta.cli_error | default(''))"
+
+    - name: Detect Botnet connections
+      fortinet.fortios.fortios_ips_sensor:
+        state: "present"
+        ips_sensor:
+          name: "default"
+          scan_botnet_connections: "block"
+
+    - name: Ensure DNS Filter logs all DNS queries and responses
+      fortinet.fortios.fortios_dnsfilter_profile:
+        state: "present"
+        dnsfilter_profile:
+          name: "default"
+          log_all_domain: "enable"

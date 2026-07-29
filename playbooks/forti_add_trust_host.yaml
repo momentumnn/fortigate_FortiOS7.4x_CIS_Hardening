@@ -1,0 +1,88 @@
+---
+- name: Verify trusthost fields before/after update
+  hosts: fortigates
+  gather_facts: no
+  connection: httpapi
+  collections:
+    - fortinet.fortios
+
+  vars:
+    target_admin: "bob"                                   # which admin account to update
+    new_trusthost1: "10.0.0.5 255.255.255.255"             # value to set for trusthost1
+
+  tasks:
+
+    # ---------- BEFORE ----------
+    - name: Get admin config BEFORE update
+      fortios_configuration_fact:
+        selector: system_admin
+      register: before_result
+
+    - name: Extract BEFORE trusthost fields for target admin
+      ansible.builtin.set_fact:
+        before_trusthosts: >-
+          {{
+            (before_result.meta.results | selectattr('name', 'equalto', target_admin) | first)
+            | dict2items
+            | selectattr('key', 'match', '^trusthost[0-9]+$')
+            | list
+            | items2dict
+          }}
+
+    - name: Show BEFORE trusthost values
+      ansible.builtin.debug:
+        var: before_trusthosts
+
+    # ---------- UPDATE ----------
+    - name: Update trusthost1 only
+      fortios_system_admin:
+        state: present
+        system_admin:
+          name: "{{ target_admin }}"
+          trusthost1: "{{ new_trusthost1 }}"
+      register: update_result
+
+    - name: Show update result
+      ansible.builtin.debug:
+        msg: "Update {{ 'succeeded' if update_result is succeeded else 'FAILED' }} for {{ target_admin }}"
+
+    # ---------- AFTER ----------
+    - name: Get admin config AFTER update
+      fortios_configuration_fact:
+        selector: system_admin
+      register: after_result
+
+    - name: Extract AFTER trusthost fields for target admin
+      ansible.builtin.set_fact:
+        after_trusthosts: >-
+          {{
+            (after_result.meta.results | selectattr('name', 'equalto', target_admin) | first)
+            | dict2items
+            | selectattr('key', 'match', '^trusthost[0-9]+$')
+            | list
+            | items2dict
+          }}
+
+    - name: Show AFTER trusthost values
+      ansible.builtin.debug:
+        var: after_trusthosts
+
+    - name: Show only fields that CHANGED
+      ansible.builtin.debug:
+        msg: "{{ key }}: '{{ before_trusthosts[key] }}' -> '{{ after_trusthosts[key] }}'"
+      loop: "{{ before_trusthosts.keys() | list }}"
+      loop_control:
+        loop_var: key
+      when: before_trusthosts[key] != after_trusthosts[key]
+
+    - name: Confirm no unintended changes to other trusthost fields
+      ansible.builtin.debug:
+        msg: >-
+          ✓ Only expected fields changed
+          {%- set unexpected = [] -%}
+          {%- for key in before_trusthosts.keys() -%}
+            {%- if before_trusthosts[key] != after_trusthosts[key] and key != 'trusthost1' -%}
+              {%- set _ = unexpected.append(key) -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {{ '' if unexpected | length == 0 else ' ⚠ UNEXPECTED CHANGES IN: ' ~ (unexpected | join(', ')) }}

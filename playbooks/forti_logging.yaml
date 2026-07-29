@@ -1,0 +1,28 @@
+---
+- name: Apply logging settings based on CIS Hardening
+  hosts: fortigates
+  gather_facts: no
+  connection: httpapi
+  collections: 
+  - fortinet.fortios
+
+  tasks:
+    - name: Enable Event Logging
+      fortios_log_eventfilter:
+        log_eventfilter:
+          event: "enable"
+
+    - name: Encrypt Log Transmission to FortiAnalyzer / FortiManager
+      fortios_log_fortianalyzer_setting: 
+        log_fortianalyzer_setting: 
+          status: "enable"
+          reliable: "enable"
+          enc_algorithm: "high"
+          server: "127.0.0.1"
+
+    - name: Encrypt Log Transmission to Syslog
+      fortios_log_syslogd_setting: 
+        log_syslogd_setting: 
+          status: "enable"
+          enc_algorithm: "high"
+          server: "127.0.0.1"

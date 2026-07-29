@@ -1,0 +1,82 @@
+---
+- name: Audit according to CIS
+  hosts: fortigates
+  gather_facts: false
+  connection: httpapi
+
+  tasks:
+    - name: gather facts
+      fortinet.fortios.fortios_configuration_fact:
+        selectors:
+          - selector: system_dns
+          - selector: system_zone
+          - selector: system_interface
+          - selector: system_global
+          - selector: system_ntp
+          - selector: system_auto-install
+          - selector: system_password-policy
+          - selector: system.snmp_sysinfo
+          - selector: system.snmp_community
+          - selector: system.snmp_user
+          - selector: system_admin
+          - selector: system_accprofile
+      register: cis_facts
+
+    # - name: Show gathered facts
+    #   ansible.builtin.debug:
+    #     var: cis_facts.meta.results
+
+    - name: Extract only needed fields
+      ansible.builtin.set_fact:
+        cis_facts:
+          system_dns:
+            primary: "{{ cis_facts.meta[0].results.primary }}"
+            secondary: "{{ cis_facts.meta[0].results.secondary }}"
+          # system_zone: "{{ cis_facts.meta[1].results }}"
+          system_interface: "{{ cis_facts.meta[2].results | json_query('[].{name: name, allowaccess: allowaccess}') }}"
+          system_global:
+            pre-login-banner: "{{ cis_facts.meta[3].results['pre-login-banner'] }}"
+            post-login-banner: "{{ cis_facts.meta[3].results['post-login-banner'] }}"
+            timezone: "{{ cis_facts.meta[3].results['timezone'] }}"
+            hostname: "{{ cis_facts.meta[3].results['hostname'] }}"
+            ssl-static-key-ciphers: "{{ cis_facts.meta[3].results['ssl-static-key-ciphers'] }}"
+            strong-crypto: "{{ cis_facts.meta[3].results['strong-crypto'] }}"
+            admin-https-ssl-versions: "{{ cis_facts.meta[3].results['admin-https-ssl-versions'] }}"
+            gui-cdn-usage: "{{ cis_facts.meta[3].results['gui-cdn-usage'] }}"
+            log-single-cpu-high: "{{ cis_facts.meta[3].results['log-single-cpu-high'] }}"
+            gui-display-hostname: "{{ cis_facts.meta[3].results['gui-display-hostname'] }}"
+            admin-lockout-threshold: "{{ cis_facts.meta[3].results['admin-lockout-threshold'] }}"
+            admin-lockout-duration: "{{ cis_facts.meta[3].results['admin-lockout-duration'] }}"
+
+          system_ntp:
+            type: "{{ cis_facts.meta[4].results.type }}"
+          system_auto_install:
+            auto-install-config: "{{ cis_facts.meta[5].results['auto-install-config'] }}"
+            auto-install-image: "{{ cis_facts.meta[5].results['auto-install-image'] }}"
+          system_password_policy:
+            status: "{{ cis_facts.meta[6].results['status'] }}"
+            apply-to: "{{ cis_facts.meta[6].results['apply-to'] }}"
+            minimum-length: "{{ cis_facts.meta[6].results['minimum-length'] }}"
+          system_snmp_sysinfo:
+            status: "{{ cis_facts.meta[7].results['status'] }}"
+          system_snmp_community:
+            status: "{{ (cis_facts.meta[8].results | first | default({})).status | default('') }}"
+          system_snmp_user:
+            status: "{{ (cis_facts.meta[9].results | first | default({})).status | default('') }}"
+          system_admin: "{{ cis_facts.meta[10].results | json_query('[].{name: name, password: password, accprofile: accprofile, trusthost1: trusthost1, trusthost2: trusthost2, trusthost3: trusthost3, trusthost4: trusthost4, trusthost5: trusthost5, trusthost6: trusthost6, trusthost7: trusthost7, trusthost8: trusthost8, trusthost9: trusthost9, trusthost10: trusthost10}') }}"          
+          system_accprofile: "{{ cis_facts.meta[11].results }}"
+
+    - name: Ensure local backup directory exists
+      ansible.builtin.file:
+        path: "{{ backup_dir }}"
+        state: directory
+        mode: "0755"
+      run_once: true
+      delegate_to: localhost
+
+    - name: Save gathered facts to file
+      ansible.builtin.copy:
+        content: "{{ cis_facts | to_nice_json }}"
+        dest: "{{ backup_dir }}/{{ inventory_hostname }}_cis_audit_{{ backup_timestamp }}.json"
+        mode: "0640"
+      delegate_to: localhost

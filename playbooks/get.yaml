@@ -1,0 +1,32 @@
+- name: Gather facts
+  hosts: fortigates
+  gather_facts: no
+  connection: httpapi
+  collections: 
+  - fortinet.fortios
+  
+  tasks:
+    - name: get all
+      fortios_configuration_fact:
+        selector: system_admin
+      register: admin_result
+    - name: admins
+      ansible.builtin.debug:
+        #       admins: "{{ log_custom_field_result.meta.results | map(attribute='name') | list }}"
+        msg: >-
+          {{ item.name }}: [
+          {% for i in range(1, 11) %}
+          {% set val = item['trusthost' ~ i] %}
+          {% if val != '0.0.0.0 0.0.0.0' %}
+          trusthost{{ i }}: '{{ val }}'{{ ', ' if not loop.last else '' }}
+          {% endif %}
+          {% endfor %}
+          ]
+      loop: "{{ admin_result.meta.results }}"
+      loop_control: 
+        label: "{{ item.name}}"
+    - name: Save output as JSON
+      ansible.builtin.copy:
+        content: "{{ admin_result.meta.results | to_nice_json }}"
+        dest: "/tmp/{{ inventory_hostname }}_log_custom_field.json"
+      delegate_to: localhost

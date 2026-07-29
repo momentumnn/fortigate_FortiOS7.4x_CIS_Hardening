@@ -1,0 +1,31 @@
+---
+- name: Apply security profile settings based on CIS Hardening
+  hosts: fortigates
+  gather_facts: no
+  connection: httpapi
+  collections: 
+  - fortinet.fortios
+
+  tasks:
+    - name: Detect Botnet connections 
+      fortios_ips_sensor:
+        state: "present"
+        ips_sensor: 
+          name: "default"
+          scan_botnet_connections: "block"
+
+    - name: Ensure DNS Filter logs all DNS queries and responses
+      fortios_dnsfilter_profile:
+        state: "present"
+        dnsfilter_profile:
+          name: "default"
+          log_all_domain: "enable"
+
+    - name: Block applications running on non-default ports 
+      fortios_application_list :
+        state: "present"
+        application_list:
+          name: "default"
+          enforce_default_app_port: "enable"
+          unknown_application_log: "enable"
+
