@@ -42,7 +42,7 @@
           auto_install_config: "disable"
           auto_install_image: "disable"
 
-    - name: Disable USB Firmware and configuration installation
+    - name: Change System global settings for security hardening
       fortinet.fortios.fortios_system_global:
         system_global:
           ssl_static_key_ciphers: "disable"
@@ -51,6 +51,10 @@
           gui_cdn_usage: "enable"
           log_single_cpu_high: "enable"
           gui_display_hostname: "disable"
+      register: result
+      until: result is succeeded
+      retries: 3
+      delay: 5
 
     - name: Ensure 'Password Policy' is enabled
       fortinet.fortios.fortios_system_password_policy:
@@ -72,7 +76,7 @@
           admin_https_redirect: "disable"
           admin_port: "8082"
           admin_server_cert: "self-sign"
-          admin_sport: "4343"
+          # admin_sport: "4343"
 
     - name: Ensure firewall policy denying all traffic to/from Tor, malicious server, or scanner IP addresses using ISDB
       fortinet.fortios.fortios_firewall_policy:

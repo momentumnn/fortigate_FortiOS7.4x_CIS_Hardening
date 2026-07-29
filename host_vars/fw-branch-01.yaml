@@ -9,3 +9,5 @@ fortigate_environment: "production"
 
 # Branch offices might have shorter retention
 retention_days: 14
+
+ansible_password: "{{ vault_fortigate_password }}"

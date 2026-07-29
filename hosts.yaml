@@ -7,5 +7,6 @@ all:
           hosts:
             fw-prod-01:
               ansible_host: 192.168.1.99
-              ansible_httpapi_port: 4343
+              # ansible_httpapi_port: 4343
               ansible_user: admin
+              ansible_password: "{{ lookup('env', 'FORTIGATE_ADMIN_PASSWORD') }}"

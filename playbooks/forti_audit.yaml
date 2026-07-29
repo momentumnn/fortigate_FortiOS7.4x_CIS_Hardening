@@ -4,8 +4,99 @@
   gather_facts: false
   connection: httpapi
 
+  vars:
+    global_keys:
+      - pre-login-banner
+      - post-login-banner
+      - timezone
+      - hostname
+      - ssl-static-key-ciphers
+      - strong-crypto
+      - admin-https-ssl-versions
+      - gui-cdn-usage
+      - log-single-cpu-high
+      - gui-display-hostname
+      - admin-lockout-threshold
+      - admin-lockout-duration
+      - admintimeout
+      - admin-https-redirect
+      - admin-port
+      - admin-server-cert
+      - admin-sport
+
+    admin_query: >-
+      [].{name: name, password: password, accprofile: accprofile,
+      trusthost1: trusthost1, trusthost2: trusthost2, trusthost3: trusthost3,
+      trusthost4: trusthost4, trusthost5: trusthost5, trusthost6: trusthost6,
+      trusthost7: trusthost7, trusthost8: trusthost8, trusthost9: trusthost9,
+      trusthost10: trusthost10}
+
+    interface_query: "[].{name: name, allowaccess: allowaccess}"
+
+    accprofile_query: >-
+      [].{name: name, admintimeout: admintimeout, 
+      super_admin: super_admin, secfabgrp: secfabgrp}
+
+    ha_query: >-
+      {mode: mode, "group-name": "group-name", hbdev: hbdev,
+      monitor: monitor, "group-id": "group-id"}
+
+    cis_controls:
+      - { section: system_ha, key: mode, expected: "a-p" }
+      - { section: system_snmp_sysinfo, key: status, expected: "enable" }
+      - { section: system_global, key: pre-login-banner, expected: "enable" }
+      - { section: system_global, key: post-login-banner, expected: "enable" }
+      - { section: system_global, key: timezone, expected: "57" }
+      - { section: system_global, key: hostname, expected: "fortigate" }
+      - {
+          section: system_global,
+          key: ssl-static-key-ciphers,
+          expected: "disable",
+        }
+      - { section: system_global, key: strong-crypto, expected: "enable" }
+      - {
+          section: system_global,
+          key: admin-https-ssl-versions,
+          expected: "tlsv1-3",
+        }
+      - { section: system_global, key: gui-cdn-usage, expected: "enable" }
+      - { section: system_global, key: log-single-cpu-high, expected: "enable" }
+      - {
+          section: system_global,
+          key: gui-display-hostname,
+          expected: "disable",
+        }
+      - { section: system_global, key: admin-lockout-threshold, expected: "3" }
+      - { section: system_global, key: admin-lockout-duration, expected: "60" }
+      - { section: system_global, key: admintimeout, expected: "5" }
+      - {
+          section: system_global,
+          key: admin-https-redirect,
+          expected: "disable",
+        }
+      - { section: system_global, key: admin-port, expected: "8082" }
+      - {
+          section: system_global,
+          key: admin-server-cert,
+          expected: "self-sign",
+        }
+      - { section: system_global, key: admin-sport, expected: "4343" }
+      - { section: system_dns, key: primary, expected: "8.8.8.8" }
+      - { section: system_dns, key: secondary, expected: "8.8.4.4" }
+      - { section: system_password_policy, key: status, expected: "enable" }
+      - {
+          section: system_password_policy,
+          key: apply-to,
+          expected: "admin-password ipsec-preshared-key",
+        }
+      - { section: system_password_policy, key: minimum-length, expected: "14" }
+      - { section: system_snmp_community, key: status, expected: "enable" }
+      - { section: system_snmp_user, key: status, expected: "enable" }
+      - { section: system_admin, key: status, expected: "enable" }
+
+
   tasks:
-    - name: gather facts
+    - name: Gather facts
       fortinet.fortios.fortios_configuration_fact:
         selectors:
           - selector: system_dns
@@ -20,51 +111,50 @@
           - selector: system.snmp_user
           - selector: system_admin
           - selector: system_accprofile
+          - selector: system_ha
       register: cis_facts
 
-    # - name: Show gathered facts
-    #   ansible.builtin.debug:
-    #     var: cis_facts.meta.results
+    - name: Build a name-keyed lookup (avoids fragile meta[N] indexing)
+      ansible.builtin.set_fact:
+        cis_by_name: "{{ dict(cis_facts.meta | map(attribute='name') | zip(cis_facts.meta | map(attribute='results'))) }}"
 
     - name: Extract only needed fields
       ansible.builtin.set_fact:
         cis_facts:
           system_dns:
-            primary: "{{ cis_facts.meta[0].results.primary }}"
-            secondary: "{{ cis_facts.meta[0].results.secondary }}"
-          # system_zone: "{{ cis_facts.meta[1].results }}"
-          system_interface: "{{ cis_facts.meta[2].results | json_query('[].{name: name, allowaccess: allowaccess}') }}"
-          system_global:
-            pre-login-banner: "{{ cis_facts.meta[3].results['pre-login-banner'] }}"
-            post-login-banner: "{{ cis_facts.meta[3].results['post-login-banner'] }}"
-            timezone: "{{ cis_facts.meta[3].results['timezone'] }}"
-            hostname: "{{ cis_facts.meta[3].results['hostname'] }}"
-            ssl-static-key-ciphers: "{{ cis_facts.meta[3].results['ssl-static-key-ciphers'] }}"
-            strong-crypto: "{{ cis_facts.meta[3].results['strong-crypto'] }}"
-            admin-https-ssl-versions: "{{ cis_facts.meta[3].results['admin-https-ssl-versions'] }}"
-            gui-cdn-usage: "{{ cis_facts.meta[3].results['gui-cdn-usage'] }}"
-            log-single-cpu-high: "{{ cis_facts.meta[3].results['log-single-cpu-high'] }}"
-            gui-display-hostname: "{{ cis_facts.meta[3].results['gui-display-hostname'] }}"
-            admin-lockout-threshold: "{{ cis_facts.meta[3].results['admin-lockout-threshold'] }}"
-            admin-lockout-duration: "{{ cis_facts.meta[3].results['admin-lockout-duration'] }}"
+            primary: "{{ cis_by_name['dns'].primary }}"
+            secondary: "{{ cis_by_name['dns'].secondary }}"
+
+          system_interface: "{{ cis_by_name['interface'] | json_query(interface_query) }}"
+
+          system_global: "{{ dict(global_keys | zip(global_keys | map('extract', cis_by_name['global']) | list)) }}"
 
           system_ntp:
-            type: "{{ cis_facts.meta[4].results.type }}"
+            type: "{{ cis_by_name['ntp'].type }}"
+
           system_auto_install:
-            auto-install-config: "{{ cis_facts.meta[5].results['auto-install-config'] }}"
-            auto-install-image: "{{ cis_facts.meta[5].results['auto-install-image'] }}"
+            auto-install-config: "{{ cis_by_name['auto-install']['auto-install-config'] }}"
+            auto-install-image: "{{ cis_by_name['auto-install']['auto-install-image'] }}"
+
           system_password_policy:
-            status: "{{ cis_facts.meta[6].results['status'] }}"
-            apply-to: "{{ cis_facts.meta[6].results['apply-to'] }}"
-            minimum-length: "{{ cis_facts.meta[6].results['minimum-length'] }}"
+            status: "{{ cis_by_name['password-policy'].status }}"
+            apply-to: "{{ cis_by_name['password-policy']['apply-to'] }}"
+            minimum-length: "{{ cis_by_name['password-policy']['minimum-length'] }}"
+
           system_snmp_sysinfo:
-            status: "{{ cis_facts.meta[7].results['status'] }}"
+            status: "{{ cis_by_name['sysinfo'].status }}"
+
           system_snmp_community:
-            status: "{{ (cis_facts.meta[8].results | first | default({})).status | default('') }}"
+            status: "{{ (cis_by_name['community'] | first | default({})).status | default('') }}"
+
           system_snmp_user:
-            status: "{{ (cis_facts.meta[9].results | first | default({})).status | default('') }}"
-          system_admin: "{{ cis_facts.meta[10].results | json_query('[].{name: name, password: password, accprofile: accprofile, trusthost1: trusthost1, trusthost2: trusthost2, trusthost3: trusthost3, trusthost4: trusthost4, trusthost5: trusthost5, trusthost6: trusthost6, trusthost7: trusthost7, trusthost8: trusthost8, trusthost9: trusthost9, trusthost10: trusthost10}') }}"          
-          system_accprofile: "{{ cis_facts.meta[11].results }}"
+            status: "{{ (cis_by_name['user'] | first | default({})).status | default('') }}"
+
+          system_admin: "{{ cis_by_name['admin'] | json_query(admin_query) }}"
+
+          system_accprofile: "{{ cis_by_name['accprofile'] | json_query(accprofile_query) }}"
+
+          system_ha: "{{ cis_by_name['ha'] | json_query(ha_query) }}"
 
     - name: Ensure local backup directory exists
       ansible.builtin.file:
@@ -78,5 +168,45 @@
       ansible.builtin.copy:
         content: "{{ cis_facts | to_nice_json }}"
         dest: "{{ backup_dir }}/{{ inventory_hostname }}_cis_audit_{{ backup_timestamp }}.json"
+        mode: "0640"
+      delegate_to: localhost
+
+    - name: Compare system_global fields against baseline
+      ansible.builtin.set_fact:
+        global_status: >-
+          {{ dict(global_keys | zip(global_keys | map('community.general.dict_kv', 'x') | list)) }}
+      # placeholder removed below — real logic:
+
+    - name: Build compliance status lines for every control
+      ansible.builtin.set_fact:
+        audit_lines: >-
+          {{ audit_lines | default([]) + [
+            item.section ~ '.' ~ item.key ~ ': ' ~
+            (cis_facts[item.section][item.key] | default('N/A')) ~
+            (' [OK]' if (cis_facts[item.section][item.key] | default(None) | string) == (item.expected | string)
+            else ' [NEEDS CONFIGURATION]')
+          ] }}
+      loop: "{{ cis_controls }}"
+      loop_control:
+        label: "{{ item.section }}.{{ item.key }}"
+
+    - name: Create brief
+      ansible.builtin.copy:
+        content: |
+          Audit Information for {{ inventory_hostname }}
+          ==========================================
+          Timestamp: {{ backup_timestamp }}
+          Site: {{ fortigate_site | default('N/A') }}
+          Location: {{ fortigate_location | default('N/A') }}
+          Role: {{ fortigate_role | default('N/A') }}
+          Environment: {{ fortigate_environment | default('N/A') }}
+          ==========================================
+          Device Details:
+          system_admin.name: {{ cis_facts.system_admin | map(attribute='name') | join(', ') }}
+          {% for line in audit_lines %}
+          {{ line }}
+          {% endfor %}          
+          ==========================================
+        dest: "{{ backup_dir }}/{{ inventory_hostname }}_cis_audit_brief_{{ backup_timestamp }}.txt"
         mode: "0640"
       delegate_to: localhost

@@ -1,20 +1,12 @@
-# FortiGate Backup Automation
+# FortiGate FortiOS7.4x CIS Hardening
 
-Automated backup solution for FortiGate firewalls using Ansible.
-
-## Watch the Video on YouTube
-[![Watch the video](./images/fortigate_automation_2_thumbnail.jpg)](https://youtu.be/9uGvibNRikI?si=pZb78t-LjLSXdysn)
-
+Automated CIS Hardening solution for FortiGate firewalls using Ansible.
 
 ## Features
 
 - ✅ Automated configuration backups
 - ✅ Device information documentation
-- ✅ Automatic retention management (configurable per device)
-- ✅ Parallel execution for multiple devices
-- ✅ Comprehensive error handling
 - ✅ Audit logging
-- ✅ Support for multiple device groups
 
 ## Quick Start
 
@@ -34,17 +26,30 @@ export FORTIGATE_PASSWORD="YourPassword"
 
 Edit `hosts.yaml` and update IP addresses for your FortiGate devices.
 
-### 4. Run Backup
+### 4. Run Audit
 ```bash
-# Backup all devices
-ansible-playbook forti_backup.yaml
+# Audit all devices
+ansible-playbook playbooks/forti_audit.yaml
 
-# Backup specific group
-ansible-playbook forti_backup.yaml --limit production_fortigates
+# Audit specific group
+ansible-playbook playbooks/forti_audit.yaml --limit production_fortigates
 
-# Backup single device
-ansible-playbook forti_backup.yaml --limit fw-prod-01
+# Audit single device
+ansible-playbook playbooks/forti_audit.yaml --limit fw-prod-01
 ```
+
+### 5. Run Hardening
+```bash
+# Harden all devices
+ansible-playbook playbooks/forti_general_settings.yaml
+
+# Harden specific group
+ansible-playbook playbooks/forti_general_settings.yaml --limit production_fortigates
+
+# Harden single device
+ansible-playbook playbooks/forti_general_settings.yaml --limit fw-prod-01
+```
+
 
 ## Directory Structure
 ```
@@ -64,8 +69,15 @@ fortigate-backup/
 │   ├── fw-branch-01.yaml
 │   ├── fw-branch-02.yaml
 │   └── fw-dmz-01.yaml
-└── backups/
-└── backup.log
+├── playbooks/
+│   ├── backups/
+│   ├── forti_add_trust_host.yaml
+│   ├── forti_audit.yaml
+│   ├── forti_backup.yaml
+│   ├── forti_general_settings.yaml
+│   ├── forti_logging.yaml
+│   ├── forti_security_profiles.yaml
+│   └── get.yaml
 ```
 
 ## Configuration
@@ -88,17 +100,6 @@ fortigate-backup/
 - Custom retention periods
 - Device-specific overrides
 
-## Scheduling
-
-### Using Cron
-```bash
-0 2 * * * cd /opt/fortigate-backup && source ~/.fortigate_credentials && ansible-playbook forti_backup.yaml
-```
-
-### Using Systemd
-
-See deployment documentation for systemd timer setup.
-
 ## Security
 
 - Use Ansible Vault for credential storage
@@ -120,7 +121,7 @@ ansible-inventory --host fw-prod-01
 
 ### Verbose Output
 ```bash
-ansible-playbook forti_backup.yaml -vvv
+ansible-playbook forti_xxx.yaml -vvv
 ```
 
 ## License

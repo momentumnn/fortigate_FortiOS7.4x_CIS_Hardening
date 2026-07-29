@@ -6,7 +6,7 @@
 
 # FortiGate credentials
 vault_fortigate_user: admin
-vault_fortigate_password: YourSecurePassword123
+vault_fortigate_password: Project123!
 
 # Optional: Different credentials for different environments
 # vault_fortigate_prod_password: ProductionPassword
